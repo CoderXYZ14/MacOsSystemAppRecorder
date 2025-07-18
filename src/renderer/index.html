@@ -3,6 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline';
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data:"
+    />
     <title>System Audio Recorder</title>
     <style>
       :root {
@@ -159,29 +167,55 @@
         font-size: 14px;
         display: none;
       }
+
+      .logs {
+        background: #f5f5f5;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 10px;
+        margin-top: 20px;
+        max-height: 200px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 12px;
+        display: none;
+      }
+
+      .log-entry {
+        margin: 2px 0;
+        padding: 2px 0;
+      }
+
+      .log-error {
+        color: #d32f2f;
+      }
+
+      .log-info {
+        color: #1976d2;
+      }
     </style>
   </head>
   <body>
     <div class="card">
       <div class="header">
         <h1>System Audio Recorder</h1>
+        <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px">
+          Records system audio only (no microphone)
+        </p>
       </div>
 
       <div class="content">
         <div id="status" class="status info">Ready to start recording</div>
 
         <button id="checkPermissionsBtn" class="btn btn-primary">
-          <span class="material-icons">verified_user</span>
           Check Permissions
         </button>
 
         <button id="startRecordingBtn" class="btn btn-primary" disabled>
-          <span class="material-icons">fiber_manual_record</span>
           Start Recording
         </button>
 
         <button id="stopRecordingBtn" class="btn btn-danger" disabled>
-          <span class="material-icons">stop</span>
           Stop Recording
         </button>
 
@@ -195,34 +229,35 @@
           class="permission-guide"
           style="display: none"
         >
-          <h3>Permission Required</h3>
-          <p>Please enable <strong>System Audio Recording</strong> in:</p>
-          <p>System Settings → Privacy & Security → Microphone</p>
+          <h3>Permissions Required</h3>
+          <p>
+            Please enable the following in System Settings → Privacy & Security:
+          </p>
+          <ul>
+            <li><strong>Screen Recording</strong> (for macOS 13+)</li>
+            <li><strong>Microphone</strong> (fallback for older systems)</li>
+          </ul>
+          <p>
+            Note: These permissions are needed to capture system audio output.
+          </p>
         </div>
 
         <div id="outputPath" class="output-path">
-          <strong>Saved to:</strong>
+          <strong>Recording saved to:</strong>
           <div id="outputLocation"></div>
+        </div>
+
+        <div id="logs" class="logs">
+          <div id="logContent"></div>
         </div>
       </div>
     </div>
 
     <script>
-      const { ipcRenderer } = require("electron");
-
-      // DOM Elements
-      const statusEl = document.getElementById("status");
-      const checkBtn = document.getElementById("checkPermissionsBtn");
-      const startBtn = document.getElementById("startRecordingBtn");
-      const stopBtn = document.getElementById("stopRecordingBtn");
-      const indicator = document.getElementById("recordingIndicator");
-      const permissionGuide = document.getElementById("permissionGuide");
-      const outputPath = document.getElementById("outputPath");
-      const outputLocation = document.getElementById("outputLocation");
-
       // State
       let isRecording = false;
       let hasPermissions = false;
+      let currentOutputPath = null;
 
       // Update UI state
       function updateUI() {
@@ -237,76 +272,124 @@
         statusEl.className = `status ${type} active`;
       }
 
+      // Add log entry
+      function addLog(message, type = "info") {
+        const logContent = document.getElementById("logContent");
+        const logEntry = document.createElement("div");
+        logEntry.className = `log-entry log-${type}`;
+        logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+        logContent.appendChild(logEntry);
+
+        // Show logs container
+        document.getElementById("logs").style.display = "block";
+
+        // Auto scroll to bottom
+        logContent.scrollTop = logContent.scrollHeight;
+      }
+
+      // DOM Elements
+      const statusEl = document.getElementById("status");
+      const checkBtn = document.getElementById("checkPermissionsBtn");
+      const startBtn = document.getElementById("startRecordingBtn");
+      const stopBtn = document.getElementById("stopRecordingBtn");
+      const indicator = document.getElementById("recordingIndicator");
+      const permissionGuide = document.getElementById("permissionGuide");
+      const outputPath = document.getElementById("outputPath");
+      const outputLocation = document.getElementById("outputLocation");
+
       // Check permissions
       checkBtn.addEventListener("click", async () => {
         showStatus("Checking permissions...", "info");
+        checkBtn.disabled = true;
 
         try {
-          const result = await ipcRenderer.invoke("check-permissions");
+          const result = await window.electronAPI.checkPermissions();
 
           if (result.hasPermission) {
             hasPermissions = true;
-            showStatus("Permissions granted!", "success");
+            showStatus("✅ Permissions granted!", "success");
             permissionGuide.style.display = "none";
+            addLog("Permissions check passed", "info");
           } else {
             hasPermissions = false;
-            showStatus("Permissions required", "error");
+            showStatus("❌ Missing permissions", "error");
             permissionGuide.style.display = "block";
+            addLog("Missing required permissions", "error");
           }
-
-          updateUI();
         } catch (error) {
           showStatus(`Error: ${error.message}`, "error");
+          addLog(`Permission check failed: ${error.message}`, "error");
+        } finally {
+          checkBtn.disabled = false;
+          updateUI();
         }
       });
 
       // Start recording
       startBtn.addEventListener("click", async () => {
         showStatus("Starting recording...", "info");
+        startBtn.disabled = true;
 
         try {
-          const result = await ipcRenderer.invoke("start-recording");
+          const homeDir = await window.electronAPI.getHomeDir();
+          const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+          const outputPath = `${homeDir}/system_audio_${timestamp}.wav`;
+
+          addLog(`Starting recording to: ${outputPath}`, "info");
+
+          const result = await window.electronAPI.startRecording(outputPath);
 
           if (result.success) {
             isRecording = true;
-            showStatus("Recording system audio", "success");
+            currentOutputPath = result.outputPath || outputPath;
+            showStatus("● Recording system audio", "success");
+            addLog("Recording started successfully", "info");
           } else {
             showStatus(`Failed: ${result.error}`, "error");
+            addLog(`Recording failed: ${result.error}`, "error");
           }
-
-          updateUI();
         } catch (error) {
           showStatus(`Error: ${error.message}`, "error");
+          addLog(`Recording error: ${error.message}`, "error");
+        } finally {
+          updateUI();
         }
       });
 
       // Stop recording
       stopBtn.addEventListener("click", async () => {
         showStatus("Stopping recording...", "info");
+        stopBtn.disabled = true;
 
         try {
-          const result = await ipcRenderer.invoke("stop-recording");
+          const result = await window.electronAPI.stopRecording();
 
           if (result.success) {
             isRecording = false;
-            showStatus("Recording saved", "success");
+            showStatus("✔ Recording saved", "success");
+            addLog("Recording stopped successfully", "info");
 
-            if (result.outputPath) {
-              outputLocation.textContent = result.outputPath;
+            const finalPath = result.outputPath || currentOutputPath;
+            if (finalPath) {
+              outputLocation.textContent = finalPath;
               outputPath.style.display = "block";
+              addLog(`File saved to: ${finalPath}`, "info");
             }
           } else {
             showStatus(`Failed: ${result.error}`, "error");
+            addLog(`Stop recording failed: ${result.error}`, "error");
           }
-
-          updateUI();
         } catch (error) {
           showStatus(`Error: ${error.message}`, "error");
+          addLog(`Stop recording error: ${error.message}`, "error");
+        } finally {
+          updateUI();
         }
       });
 
       // Initialize
       updateUI();
+      addLog("System Audio Recorder initialized", "info");
     </script>
   </body>
 </html>
