@@ -106,9 +106,13 @@ class LegacySystemAudioRecorder {
     func start(outputPath: String) throws {
         guard !isRecording else { return }
         
+        print("Attempting legacy audio recording (no Screen Recording permission needed)")
+        
         audioEngine = AVAudioEngine()
         let inputNode = audioEngine!.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
+        
+        print("Input format: \(inputFormat)")
         
         let outputURL = URL(fileURLWithPath: outputPath)
         audioFile = try AVAudioFile(forWriting: outputURL, settings: inputFormat.settings)
@@ -142,13 +146,19 @@ class SystemAudioRecorder {
     private let useModern: Bool
     
     init() {
-        if #available(macOS 13.0, *) {
-            useModern = true
-            modernRecorder = ModernSystemAudioRecorder()
-        } else {
-            useModern = false
-            legacyRecorder = LegacySystemAudioRecorder()
-        }
+        // Force legacy mode for MacinCloud compatibility
+        print("Forcing legacy mode for compatibility with cloud Mac services")
+        useModern = false
+        legacyRecorder = LegacySystemAudioRecorder()
+        
+        // Original logic (commented out):
+        // if #available(macOS 13.0, *) {
+        //     useModern = true
+        //     modernRecorder = ModernSystemAudioRecorder()
+        // } else {
+        //     useModern = false
+        //     legacyRecorder = LegacySystemAudioRecorder()
+        // }
     }
     
     func start(outputPath: String) async throws {
