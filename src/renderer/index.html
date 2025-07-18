@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>System Audio Recorder</title>
+    <style>
+      :root {
+        --primary: #2962ff;
+        --danger: #ff5252;
+        --success: #4caf50;
+        --background: #f5f7fa;
+        --card: #ffffff;
+        --text: #263238;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        background: var(--background);
+        color: var(--text);
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+      }
+
+      .card {
+        background: var(--card);
+        border-radius: 12px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 500px;
+        overflow: hidden;
+      }
+
+      .header {
+        background: var(--primary);
+        color: white;
+        padding: 20px;
+        text-align: center;
+      }
+
+      .content {
+        padding: 30px;
+      }
+
+      .status {
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-weight: 500;
+        display: none;
+      }
+
+      .status.active {
+        display: block;
+      }
+
+      .status.info {
+        background: #e3f2fd;
+        color: #0d47a1;
+      }
+
+      .status.success {
+        background: #e8f5e9;
+        color: #2e7d32;
+      }
+
+      .status.error {
+        background: #ffebee;
+        color: #c62828;
+      }
+
+      .btn {
+        border: none;
+        border-radius: 8px;
+        padding: 12px 20px;
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+        width: 100%;
+        margin: 8px 0;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .btn-primary {
+        background: var(--primary);
+        color: white;
+      }
+
+      .btn-danger {
+        background: var(--danger);
+        color: white;
+      }
+
+      .recording-indicator {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 20px 0;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      .recording-indicator.active {
+        opacity: 1;
+      }
+
+      .pulse {
+        width: 12px;
+        height: 12px;
+        background: var(--danger);
+        border-radius: 50%;
+        margin-right: 10px;
+        animation: pulse 1.5s infinite;
+      }
+
+      @keyframes pulse {
+        0% {
+          transform: scale(0.95);
+          opacity: 1;
+        }
+        50% {
+          transform: scale(1.1);
+          opacity: 0.7;
+        }
+        100% {
+          transform: scale(0.95);
+          opacity: 1;
+        }
+      }
+
+      .permission-guide {
+        background: #fff8e1;
+        border-left: 4px solid #ffc107;
+        padding: 15px;
+        margin: 20px 0;
+        border-radius: 0 8px 8px 0;
+      }
+
+      .output-path {
+        background: #eceff1;
+        padding: 12px;
+        border-radius: 6px;
+        margin-top: 20px;
+        word-break: break-all;
+        font-family: monospace;
+        font-size: 14px;
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="header">
+        <h1>System Audio Recorder</h1>
+      </div>
+
+      <div class="content">
+        <div id="status" class="status info">Ready to start recording</div>
+
+        <button id="checkPermissionsBtn" class="btn btn-primary">
+          <span class="material-icons">verified_user</span>
+          Check Permissions
+        </button>
+
+        <button id="startRecordingBtn" class="btn btn-primary" disabled>
+          <span class="material-icons">fiber_manual_record</span>
+          Start Recording
+        </button>
+
+        <button id="stopRecordingBtn" class="btn btn-danger" disabled>
+          <span class="material-icons">stop</span>
+          Stop Recording
+        </button>
+
+        <div id="recordingIndicator" class="recording-indicator">
+          <div class="pulse"></div>
+          <span>Recording system audio...</span>
+        </div>
+
+        <div
+          id="permissionGuide"
+          class="permission-guide"
+          style="display: none"
+        >
+          <h3>Permission Required</h3>
+          <p>Please enable <strong>System Audio Recording</strong> in:</p>
+          <p>System Settings → Privacy & Security → Microphone</p>
+        </div>
+
+        <div id="outputPath" class="output-path">
+          <strong>Saved to:</strong>
+          <div id="outputLocation"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const { ipcRenderer } = require("electron");
+
+      // DOM Elements
+      const statusEl = document.getElementById("status");
+      const checkBtn = document.getElementById("checkPermissionsBtn");
+      const startBtn = document.getElementById("startRecordingBtn");
+      const stopBtn = document.getElementById("stopRecordingBtn");
+      const indicator = document.getElementById("recordingIndicator");
+      const permissionGuide = document.getElementById("permissionGuide");
+      const outputPath = document.getElementById("outputPath");
+      const outputLocation = document.getElementById("outputLocation");
+
+      // State
+      let isRecording = false;
+      let hasPermissions = false;
+
+      // Update UI state
+      function updateUI() {
+        startBtn.disabled = isRecording || !hasPermissions;
+        stopBtn.disabled = !isRecording;
+        indicator.classList.toggle("active", isRecording);
+      }
+
+      // Show status message
+      function showStatus(message, type = "info") {
+        statusEl.textContent = message;
+        statusEl.className = `status ${type} active`;
+      }
+
+      // Check permissions
+      checkBtn.addEventListener("click", async () => {
+        showStatus("Checking permissions...", "info");
+
+        try {
+          const result = await ipcRenderer.invoke("check-permissions");
+
+          if (result.hasPermission) {
+            hasPermissions = true;
+            showStatus("Permissions granted!", "success");
+            permissionGuide.style.display = "none";
+          } else {
+            hasPermissions = false;
+            showStatus("Permissions required", "error");
+            permissionGuide.style.display = "block";
+          }
+
+          updateUI();
+        } catch (error) {
+          showStatus(`Error: ${error.message}`, "error");
+        }
+      });
+
+      // Start recording
+      startBtn.addEventListener("click", async () => {
+        showStatus("Starting recording...", "info");
+
+        try {
+          const result = await ipcRenderer.invoke("start-recording");
+
+          if (result.success) {
+            isRecording = true;
+            showStatus("Recording system audio", "success");
+          } else {
+            showStatus(`Failed: ${result.error}`, "error");
+          }
+
+          updateUI();
+        } catch (error) {
+          showStatus(`Error: ${error.message}`, "error");
+        }
+      });
+
+      // Stop recording
+      stopBtn.addEventListener("click", async () => {
+        showStatus("Stopping recording...", "info");
+
+        try {
+          const result = await ipcRenderer.invoke("stop-recording");
+
+          if (result.success) {
+            isRecording = false;
+            showStatus("Recording saved", "success");
+
+            if (result.outputPath) {
+              outputLocation.textContent = result.outputPath;
+              outputPath.style.display = "block";
+            }
+          } else {
+            showStatus(`Failed: ${result.error}`, "error");
+          }
+
+          updateUI();
+        } catch (error) {
+          showStatus(`Error: ${error.message}`, "error");
+        }
+      });
+
+      // Initialize
+      updateUI();
+    </script>
+  </body>
+</html>

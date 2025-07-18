@@ -1,0 +1,37 @@
+{
+  "name": "system-audio-recorder",
+  "version": "1.0.0",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --mac",
+    "build:swift": "swiftc ./native/SystemAudioRecorder.swift -o ./native/SystemAudioRecorder",
+    "postinstall": "electron-builder install-app-deps",
+    "sign": "codesign --deep --force --sign - ./native/SystemAudioRecorder"
+  },
+  "devDependencies": {
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3",
+    "electron-notarize": "^1.2.3"
+  },
+  "dependencies": {
+    "@electron/remote": "^2.1.3",
+    "fix-path": "^3.0.0"
+  },
+  "build": {
+    "appId": "com.example.systemaudiorecorder",
+    "mac": {
+      "target": "dir",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "entitlements": "entitlements.mac.plist"
+    },
+    "extraFiles": [
+      "native/SystemAudioRecorder"
+    ],
+    "files": [
+      "src/**/*",
+      "resources/**/*"
+    ]
+  }
+}

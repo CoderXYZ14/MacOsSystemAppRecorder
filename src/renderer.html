@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>macOS System Audio Recorder</title>
+  </head>
+  <body>
+    <h2>System Audio Recorder</h2>
+    <button id="start">Start Recording</button>
+    <button id="stop">Stop Recording</button>
+
+    <script>
+      const { ipcRenderer } = require("electron");
+
+      document.getElementById("start").addEventListener("click", () => {
+        ipcRenderer.send("start-recording");
+      });
+
+      document.getElementById("stop").addEventListener("click", () => {
+        ipcRenderer.send("stop-recording");
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Basic Info -->
+    <key>CFBundleIdentifier</key>
+    <string>com.yourdomain.systemaudiorecorder</string>
+    <key>CFBundleVersion</key>
+    <string>1.0.0</string>
+    
+    <!-- Permissions Descriptions -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>This app requires microphone access only for system audio mixing. Your actual microphone input will NOT be recorded.</string>
+    
+    <key>NSAudioCaptureUsageDescription</key>
+    <string>This app needs to capture system audio output for recording purposes. No other audio sources will be accessed.</string>
+    
+    <!-- macOS Specific -->
+    <key>LSMinimumSystemVersion</key>
+    <string>12.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    
+    <!-- App Category -->
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+    
+    <!-- UI Presentation -->
+    <key>LSUIElement</key>
+    <false/>
+</dict>
+</plist>
