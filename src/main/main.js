@@ -33,9 +33,9 @@ function createWindow() {
 
 function getNativeBinaryPath() {
   const paths = [
-    path.join(__dirname, "../../native/SystemAudioRecorder"), // Development path
-    path.join(process.resourcesPath, "native/SystemAudioRecorder"), // Packaged app path
-    path.join(__dirname, "../../../native/SystemAudioRecorder"), // Alternative dev path
+    path.join(__dirname, "../../native/SystemAudioRecorder"),
+    path.join(process.resourcesPath, "native/SystemAudioRecorder"),
+    path.join(__dirname, "../../../native/SystemAudioRecorder"),
   ];
 
   for (const binPath of paths) {

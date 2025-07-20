@@ -4,12 +4,6 @@ A simple Electron app that records system audio on macOS using a Swift native br
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- macOS 10.15+ (Catalina or later)
-- Node.js 16+ installed
-- Xcode Command Line Tools
-
 ### Installation & Setup
 
 1. **Clone or download the project**
@@ -99,38 +93,3 @@ npm run dev
 ```
 
 _Press Ctrl+C to stop_
-
-## 💡 How It Works
-
-1. **Electron frontend** provides the user interface
-2. **Swift binary** handles actual audio recording using AVFoundation
-3. **IPC communication** coordinates between Electron and Swift
-4. **Legacy mode** ensures compatibility with cloud Mac services
-
-## 📋 System Requirements
-
-- **macOS 10.15+** (Catalina or newer)
-- **Node.js 16+**
-- **Microphone permission** (required for audio input access)
-- **Screen Recording permission** (for advanced features on macOS 13+)
-
-## 🎯 Features
-
-- ✅ Records system audio only (no microphone input)
-- ✅ High-quality WAV output (48kHz stereo)
-- ✅ Simple one-click recording
-- ✅ Works on cloud Mac services (MacinCloud, etc.)
-- ✅ Automatic file naming with timestamps
-- ✅ Real-time recording status and logs
-
----
-
-**Quick Commands:**
-
-```bash
-# Full setup and run
-npm run build:swift && npm install && npm start
-
-# Just run (if already built)
-npm start
-```
